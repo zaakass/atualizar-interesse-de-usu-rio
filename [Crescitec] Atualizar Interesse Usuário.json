@@ -1,0 +1,69 @@
+{
+  "name": "[Crescitec] Atualizar Interesse Usuário",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": 2
+            }
+          ]
+        }
+      },
+      "id": "9cabd0b3-adb8-4ce3-9df6-d5297266f6df",
+      "name": "Cron (diário 2h)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH score_total AS (\n  SELECT\n    r.usuario_id,\n    t.categoria,\n    SUM(3 * POWER(0.9, FLOOR(EXTRACT(DAY FROM NOW() - r.criado_em)/7))) AS pontos\n  FROM respostas r\n  JOIN topicos t ON r.topico_id = t.id\n  GROUP BY r.usuario_id, t.categoria\n\n  UNION ALL\n\n  SELECT\n    c.usuario_id,\n    t.categoria,\n    SUM(1 * POWER(0.9, FLOOR(EXTRACT(DAY FROM NOW() - c.criado_em)/7))) AS pontos\n  FROM curtidas c\n  JOIN respostas r ON c.resposta_id = r.id\n  JOIN topicos t   ON r.topico_id   = t.id\n  GROUP BY c.usuario_id, t.categoria\n\n  UNION ALL\n\n  SELECT\n    t.usuario_id,\n    t.categoria,\n    SUM(5 * POWER(0.9, FLOOR(EXTRACT(DAY FROM NOW() - t.criado_em)/7))) AS pontos\n  FROM topicos t\n  GROUP BY t.usuario_id, t.categoria\n)\nINSERT INTO interesse_usuario (usuario_id, categoria, peso, atualizado_em)\nSELECT\n  usuario_id,\n  categoria,\n  SUM(pontos) AS peso,\n  timezone('utc', NOW()) AS atualizado_em\nFROM score_total\nGROUP BY usuario_id, categoria\nON CONFLICT (usuario_id, categoria) DO UPDATE\n   SET peso = EXCLUDED.peso,\n       atualizado_em = EXCLUDED.atualizado_em;",
+        "additionalFields": {}
+      },
+      "id": "e96335b9-258a-49a2-b39f-1a74aaf15c94",
+      "name": "Atualizar interesses (lote)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        304,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "K293VxCIa2NrzdEO",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Cron (diário 2h)": {
+      "main": [
+        [
+          {
+            "node": "Atualizar interesses (lote)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "6e229516-dd49-4484-9327-abe7f81a4efd",
+  "meta": {
+    "instanceId": "e530b2978a79602ba5516c78c516b915bdd00c9813288d9f703e1557d90cb30f"
+  },
+  "id": "SBw7ODfz36Gtd66D",
+  "tags": []
+}
